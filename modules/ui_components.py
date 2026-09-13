@@ -188,10 +188,10 @@ def gauge_chart(value: float, title: str, suffix: str = "%",
             },
         },
     ))
-    fig.update_layout(**PLOTLY_LAYOUT, height=240, margin=dict(t=32, b=16, l=24, r=24))
+    fig.update_layout(**{**PLOTLY_LAYOUT, "height": 240, "margin": dict(t=32, b=16, l=24, r=24)})
     return fig
 
 
 def apply_plotly_theme(fig, height: int = 360) -> go.Figure:
-    fig.update_layout(**PLOTLY_LAYOUT, height=height)
+    fig.update_layout(**{**PLOTLY_LAYOUT, "height": height})
     return fig
