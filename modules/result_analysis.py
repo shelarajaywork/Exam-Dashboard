@@ -317,7 +317,7 @@ def _tab_comparisons(df: pd.DataFrame):
             top_mods = df[mod_col].value_counts().head(8).index.tolist()
             sub = df[df[mod_col].isin(top_mods)]
             sub = sub.copy()
-            sub["Result_Clean"] = sub[result_col].astype(str).str.lower().map(
+            sub["Result_Clean"] = sub[result_col].astype(str).str.lower().fillna("").map(
                 lambda r: "Pass" if "pass" in r else ("Fail" if "fail" in r else "Other")
             )
             pf = sub.groupby([mod_col, "Result_Clean"]).size().reset_index(name="Count")
