@@ -33,6 +33,8 @@ venv.bak/
 credentials.json
 client_secret*.json
 service_account*.json
+examdashboard*.json
+*.json
 token.json
 .streamlit/secrets.toml
 
