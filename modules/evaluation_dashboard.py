@@ -14,7 +14,7 @@ from modules.drive_utils import (
     SECTION_FOLDER_IDS, list_subfolders, find_files_recursive, download_file
 )
 from modules.ui_components import (
-    MAROON, GOLD, GREEN, AMBER, RED, OFF_WHITE,
+    MAROON, GOLD, GREEN, AMBER, RED,
     PLOTLY_LAYOUT, page_header, breadcrumb, kpi_card,
     gauge_chart, apply_plotly_theme,
 )

@@ -14,6 +14,7 @@ RED    = "#d62728"
 PURPLE = "#9467bd"
 MAROON = "#8c564b"
 GOLD   = "#e377c2"
+OFF_WHITE = "#FAF7F2"
 
 # Transparent background layout so charts blend with any theme
 PLOTLY_LAYOUT = dict(
