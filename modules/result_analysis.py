@@ -22,50 +22,77 @@ from modules.ui_components import (
 # ── Navigation helpers ──────────────────────────────────────────────────────────
 
 def _build_nav() -> tuple[str, str, str]:
-    """Year → College → File. Returns (folder_id, file_id_or_ALL, label)."""
+    """
+    Dynamic nav: Year → Term (optional) → College → Sub-folder (optional).
+    Returns (root_search_folder_id, target_folder_id, label).
+    """
     root_id = SECTION_FOLDER_IDS["Result Analysis"]
 
+    # ── Level 1: Academic Year ─────────────────────────────────────────
     year_folders = list_subfolders(root_id)
-    year_names   = [f["name"] for f in year_folders]
-    default_idx  = len(year_names) - 1
+    if not year_folders:
+        return root_id, "ALL", "All"
+    year_names  = [f["name"] for f in year_folders]
+    default_idx = len(year_names) - 1
 
     st.sidebar.markdown("**Academic Year**")
     chosen_year = st.sidebar.selectbox(
         "Year", year_names, index=default_idx, key="ra_year", label_visibility="collapsed"
     )
     year_id = next(f["id"] for f in year_folders if f["name"] == chosen_year)
+    label = chosen_year
 
-    # College
-    college_folders = list_subfolders(year_id)
-    if not college_folders:
-        return year_id, "ALL", chosen_year
+    # ── Level 2: Term OR College ───────────────────────────────────────
+    lvl2_folders = list_subfolders(year_id)
+    if not lvl2_folders:
+        return year_id, "ALL", label
 
-    college_names = [f["name"] for f in college_folders]
+    lvl2_names = [f["name"] for f in lvl2_folders]
+    is_term_level = any(n.lower().startswith("term") or n.lower().startswith("sem") for n in lvl2_names)
+    lvl2_label = "**Term / Semester**" if is_term_level else "**College**"
+
+    st.sidebar.markdown(lvl2_label)
+    chosen_lvl2 = st.sidebar.selectbox(
+        "Level2", ["All"] + lvl2_names, key="ra_lvl2", label_visibility="collapsed"
+    )
+    if chosen_lvl2 == "All":
+        return year_id, "ALL", label
+
+    lvl2_id = next(f["id"] for f in lvl2_folders if f["name"] == chosen_lvl2)
+    label = f"{label} › {chosen_lvl2}"
+
+    # ── Level 3: College (if level 2 was Term) ─────────────────────────
+    lvl3_folders = list_subfolders(lvl2_id)
+    if not lvl3_folders:
+        return lvl2_id, "ALL", label
+
+    lvl3_names = [f["name"] for f in lvl3_folders]
     st.sidebar.markdown("**College**")
-    chosen_college = st.sidebar.selectbox(
-        "College", ["All Colleges"] + college_names, key="ra_college", label_visibility="collapsed"
+    chosen_lvl3 = st.sidebar.selectbox(
+        "Level3", ["All Colleges"] + lvl3_names, key="ra_lvl3", label_visibility="collapsed"
     )
+    if chosen_lvl3 == "All Colleges":
+        return lvl2_id, "ALL", label
 
-    if chosen_college == "All Colleges":
-        return year_id, "ALL", chosen_year
+    lvl3_id = next(f["id"] for f in lvl3_folders if f["name"] == chosen_lvl3)
+    label = f"{label} › {chosen_lvl3}"
 
-    college_id = next(f["id"] for f in college_folders if f["name"] == chosen_college)
+    # ── Level 4: Sub-folder (GMR Files, Re-exam, etc.) ─────────────────
+    lvl4_folders = list_subfolders(lvl3_id)
+    if not lvl4_folders:
+        return lvl3_id, "ALL", label
 
-    # Sub-folder (GMR Files, Re-exam, etc.)
-    sub_folders = list_subfolders(college_id)
-    if not sub_folders:
-        return college_id, "ALL", chosen_college
-
-    sub_names = [f["name"] for f in sub_folders]
+    lvl4_names = [f["name"] for f in lvl4_folders]
     st.sidebar.markdown("**Sub-folder / Exam Type**")
-    chosen_sub = st.sidebar.selectbox(
-        "Sub-folder", ["All Files in College"] + sub_names, key="ra_sub", label_visibility="collapsed"
+    chosen_lvl4 = st.sidebar.selectbox(
+        "Level4", ["All Files"] + lvl4_names, key="ra_lvl4", label_visibility="collapsed"
     )
-    if chosen_sub == "All Files in College":
-        return college_id, "ALL", chosen_college
+    if chosen_lvl4 == "All Files":
+        return lvl3_id, "ALL", label
 
-    sub_id = next(f["id"] for f in sub_folders if f["name"] == chosen_sub)
-    return sub_id, "ALL", f"{chosen_college} › {chosen_sub}"
+    lvl4_id = next(f["id"] for f in lvl4_folders if f["name"] == chosen_lvl4)
+    return lvl4_id, "ALL", f"{label} › {chosen_lvl4}"
+
 
 
 # ── Data loading ────────────────────────────────────────────────────────────────
@@ -372,7 +399,9 @@ def render():
         df, all_files = _load_data(folder_id)
 
     if df is None or df.empty:
-        st.warning("No examination result files found under the selected folder.")
+        st.warning(f"No examination result files found under **{label}**.")
+        if "2025-26" in label:
+            st.info("💡 **Tip**: Examination data is available in **2024-25 › Term I › N. M. College › GMR Files**. Select **2024-25** in the sidebar above to view the analysis, or upload new files to this folder in Google Drive.")
         return
 
     breadcrumb("Result Analysis", label)
