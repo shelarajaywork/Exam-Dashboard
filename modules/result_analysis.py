@@ -267,7 +267,7 @@ def _tab_modules(df: pd.DataFrame):
     col_a, col_b = st.columns(2)
 
     with col_a:
-        st.markdown('<div class="section-header">Module-wise Average Marks</div>', unsafe_allow_html=True)
+        st.subheader("Module-wise Average Marks")
         if mod_col and "Total" in df.columns:
             mod_df = (
                 df.groupby(mod_col)["Total"]
@@ -291,7 +291,7 @@ def _tab_modules(df: pd.DataFrame):
             st.info("Module and Total columns required for this chart.")
 
     with col_b:
-        st.markdown('<div class="section-header">SGPA Distribution (Violin)</div>', unsafe_allow_html=True)
+        st.subheader("SGPA Distribution (Violin)")
         if mod_col and "SGPA" in df.columns and not df["SGPA"].dropna().empty:
             top_mods = df[mod_col].value_counts().head(6).index.tolist()
             sub = df[df[mod_col].isin(top_mods)].dropna(subset=["SGPA"])
@@ -318,7 +318,7 @@ def _tab_comparisons(df: pd.DataFrame):
     mod_col = df.attrs.get("module_col")
 
     with col_a:
-        st.markdown('<div class="section-header">Gender Performance Comparison</div>', unsafe_allow_html=True)
+        st.subheader("Gender Performance Comparison")
         metric = "SGPA" if "SGPA" in df.columns else ("Total" if "Total" in df.columns else None)
         if "Gender" in df.columns and metric:
             gen_df = df.dropna(subset=[metric, "Gender"])
@@ -338,7 +338,7 @@ def _tab_comparisons(df: pd.DataFrame):
             st.info("Gender and SGPA/Total columns required.")
 
     with col_b:
-        st.markdown('<div class="section-header">Pass vs Fail by Module</div>', unsafe_allow_html=True)
+        st.subheader("Pass vs Fail by Module")
         result_col = df.attrs.get("result_col")
         if mod_col and result_col and result_col in df.columns:
             top_mods = df[mod_col].value_counts().head(8).index.tolist()
@@ -363,7 +363,7 @@ def _tab_comparisons(df: pd.DataFrame):
 # ── Tab 4: GMR Records ─────────────────────────────────────────────────────────────
 
 def _tab_records(df: pd.DataFrame, label: str):
-    st.markdown('<div class="section-header">Grade Master Report (GMR)</div>', unsafe_allow_html=True)
+    st.subheader("Grade Master Report (GMR)")
     search = st.text_input("Search by student name, module, grade or program:", "")
     disp = df.copy()
     if search:

@@ -249,7 +249,7 @@ def _tab_deepdive(df: pd.DataFrame):
     col_a, col_b = st.columns(2)
 
     with col_a:
-        st.markdown('<div class="section-header">Course-Level Evaluation Status</div>', unsafe_allow_html=True)
+        st.subheader("Course-Level Evaluation Status")
         if "CourseName" in df.columns:
             c_df = df.groupby("CourseName").agg(
                 Checked=("CheckCount", "sum"),
@@ -267,7 +267,7 @@ def _tab_deepdive(df: pd.DataFrame):
             st.plotly_chart(fig_c, use_container_width=True)
 
     with col_b:
-        st.markdown('<div class="section-header">Top Examiner Productivity</div>', unsafe_allow_html=True)
+        st.subheader("Top Examiner Productivity")
         if "ExaminerName" in df.columns:
             ex_df = df.groupby("ExaminerName").agg(
                 Present=("PresentCount", "sum"),
@@ -292,7 +292,7 @@ def _tab_deepdive(df: pd.DataFrame):
 # ── Tab 3: Deadline Tracker ───────────────────────────────────────────────────────
 
 def _tab_deadlines(df: pd.DataFrame):
-    st.markdown('<div class="section-header">Evaluation Deadline Tracker</div>', unsafe_allow_html=True)
+    st.subheader("Evaluation Deadline Tracker")
 
     if "_deadline_days" not in df.columns:
         st.info("No EvaluationLastDate column found in this dataset.")
@@ -309,34 +309,26 @@ def _tab_deadlines(df: pd.DataFrame):
     })
     tracker = tracker.sort_values("Days Until Deadline")
 
-    # Summary badges
-    overdue_n  = (tracker["Days Until Deadline"] < 0).sum()
-    today_n    = (tracker["Days Until Deadline"] == 0).sum()
-    upcoming_n = (tracker["Days Until Deadline"] > 0).sum()
+    # Summary metrics
+    overdue_n  = int((tracker["Days Until Deadline"] < 0).sum())
+    today_n    = int((tracker["Days Until Deadline"] == 0).sum())
+    upcoming_n = int((tracker["Days Until Deadline"] > 0).sum())
 
-    b1, b2, b3, _ = st.columns([1, 1, 1, 3])
+    b1, b2, b3 = st.columns(3)
     with b1:
-        st.markdown(f'<span class="badge badge-red">Overdue: {overdue_n}</span>', unsafe_allow_html=True)
+        st.metric("🔴 Overdue Deadlines", f"{overdue_n:,}")
     with b2:
-        st.markdown(f'<span class="badge badge-amber">Due Today: {today_n}</span>', unsafe_allow_html=True)
+        st.metric("🟡 Due Today", f"{today_n:,}")
     with b3:
-        st.markdown(f'<span class="badge badge-green">Upcoming: {upcoming_n}</span>', unsafe_allow_html=True)
+        st.metric("🟢 Upcoming Deadlines", f"{upcoming_n:,}")
 
-    st.markdown("&nbsp;", unsafe_allow_html=True)
-
-    # Colour-coded table
-    def row_style(row):
-        days = row.get("Days Until Deadline", 1)
-        if days < 0:
-            return ["background-color: #FFEBEE"] * len(row)
-        if days == 0:
-            return ["background-color: #FFF3E0"] * len(row)
-        return [""] * len(row)
-
-    st.dataframe(
-        tracker.style.apply(row_style, axis=1),
-        use_container_width=True, height=420
+    # Display clean table without hardcoded row backgrounds
+    tracker_disp = tracker.copy()
+    tracker_disp["Status"] = tracker_disp["Status"].apply(
+        lambda s: "🔴 Overdue" if s == "Overdue" else ("🟡 Due Today" if s == "Due Today" else "🟢 Upcoming")
     )
+
+    st.dataframe(tracker_disp, use_container_width=True, height=420)
 
     # Deadline timeline chart
     if "Deadline" in tracker.columns and not tracker.empty:
@@ -359,7 +351,7 @@ def _tab_deadlines(df: pd.DataFrame):
 # ── Tab 4: Records ───────────────────────────────────────────────────────────────
 
 def _tab_records(df: pd.DataFrame, folder_label: str):
-    st.markdown('<div class="section-header">Evaluation Records Explorer</div>', unsafe_allow_html=True)
+    st.subheader("Evaluation Records Explorer")
 
     search = st.text_input("Search by examiner name, course, campus or status:", "")
     disp = df.copy()

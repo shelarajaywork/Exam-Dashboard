@@ -20,23 +20,11 @@ from modules import evaluation_dashboard, result_analysis
 # ── Global styles ─────────────────────────────────────────────────────────────
 inject_css()
 
-# ── Sidebar branding ──────────────────────────────────────────────────────────
+# ── Sidebar branding (Theme-adaptive: clean in both Light & Dark modes) ─────────
 with st.sidebar:
-    st.markdown(
-        """
-        <div style="text-align:center; padding:16px 0 8px">
-            <div style="font-size:28px;">🎓</div>
-            <div style="font-size:15px; font-weight:700; letter-spacing:.04em; color:#F0D080;">
-                SVKM CED
-            </div>
-            <div style="font-size:11px; opacity:.75; margin-top:2px; color:#FAF7F2;">
-                Exam Intelligence Portal
-            </div>
-        </div>
-        <hr style="border-color:#7B1C1C; margin:8px 0 14px;">
-        """,
-        unsafe_allow_html=True,
-    )
+    st.markdown("### 🎓 SVKM CED")
+    st.caption("Exam Operations & Intelligence Portal")
+    st.divider()
 
     # Primary navigation
     page = st.radio(
@@ -45,15 +33,8 @@ with st.sidebar:
         label_visibility="collapsed",
     )
 
-    st.markdown(
-        """
-        <hr style="border-color:#7B1C1C; margin:14px 0 10px;">
-        <div style="font-size:10px; opacity:.55; color:#FAF7F2; text-align:center;">
-            Data refreshes every 5 min &bull; Live · Google Drive
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    st.divider()
+    st.caption("🔄 Live sync with Google Drive")
 
 # ── Route to page module ──────────────────────────────────────────────────────
 if "Evaluation" in page:
