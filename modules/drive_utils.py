@@ -3,6 +3,9 @@ modules/drive_utils.py
 Shared Google Drive connection, folder scanning, and file download utilities.
 """
 import io
+import json
+import os
+import pathlib
 import time
 import socket
 import pandas as pd
@@ -33,10 +36,59 @@ DATA_MIMETYPES = {
 }
 
 
+def get_credentials_info() -> dict | None:
+    """
+    Safely retrieves the Google Service Account credentials dictionary.
+    Supports:
+      1. st.secrets["gcp_service_account"] (dict or AttrDict)
+      2. st.secrets["gcp_service_account"] (JSON string)
+      3. st.secrets with root-level service account keys
+      4. Environment variable GCP_SERVICE_ACCOUNT
+      5. Local JSON key file (for local development)
+    """
+    # 1. Standard st.secrets["gcp_service_account"]
+    try:
+        if "gcp_service_account" in st.secrets:
+            sec = st.secrets["gcp_service_account"]
+            if isinstance(sec, str):
+                return json.loads(sec)
+            return dict(sec)
+    except Exception:
+        pass
+
+    # 2. Root-level keys in st.secrets
+    try:
+        if "project_id" in st.secrets and "private_key" in st.secrets:
+            return dict(st.secrets)
+    except Exception:
+        pass
+
+    # 3. Environment variable
+    env_sec = os.getenv("GCP_SERVICE_ACCOUNT")
+    if env_sec:
+        try:
+            return json.loads(env_sec)
+        except Exception:
+            pass
+
+    # 4. Local JSON key file (development fallback)
+    for p in pathlib.Path(".").glob("examdashboard*.json"):
+        try:
+            return json.loads(p.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+
+    return None
+
+
 def get_drive_service():
-    """Builds a fresh Google Drive API service client from Streamlit secrets."""
+    """Builds a fresh Google Drive API service client from resolved credentials."""
+    creds_info = get_credentials_info()
+    if not creds_info:
+        raise KeyError("gcp_service_account")
+
     creds = service_account.Credentials.from_service_account_info(
-        st.secrets["gcp_service_account"], scopes=SCOPES
+        creds_info, scopes=SCOPES
     )
     return build("drive", "v3", credentials=creds, cache_discovery=False)
 
