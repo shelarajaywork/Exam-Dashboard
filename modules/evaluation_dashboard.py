@@ -131,6 +131,23 @@ def _load_data(year_id: str, folder_id: str) -> tuple[pd.DataFrame | None, str]:
 
     df = pd.concat(dfs, ignore_index=True)
 
+    # 1. Exclude completely blank rows & rows where Column A is empty/blank/nan
+    first_col = df.columns[0]
+    df = df.dropna(how="all")
+    df = df[
+        df[first_col].notna() &
+        (df[first_col].astype(str).str.strip() != "") &
+        (df[first_col].astype(str).str.lower() != "nan")
+    ]
+
+    # 2. Exclude rows containing "Count:" in Column A (case-insensitive)
+    df = df[~df[first_col].astype(str).str.contains(r"\bCount\b|Count:", case=False, na=False)]
+
+    # 3. Exclude CampusName and StreamName columns
+    cols_to_drop = [c for c in ["CampusName", "StreamName"] if c in df.columns]
+    if cols_to_drop:
+        df = df.drop(columns=cols_to_drop)
+
     # Numeric coercion
     for c in ["PresentCount", "CheckCount", "UnCheckCount", "InprogressCount", "RejectCount", "UploadCount"]:
         if c in df.columns:
@@ -222,21 +239,22 @@ def _tab_overview(df: pd.DataFrame):
         apply_plotly_theme(fig_donut, height=320)
         st.plotly_chart(fig_donut, use_container_width=True)
 
-    # Stream progress bars
+    # Role progress bars
     with s_col:
-        if "StreamName" in df.columns:
-            stream_df = df.groupby("StreamName").agg(
+        group_col = "RoleName" if "RoleName" in df.columns else ("Semester/Trimester" if "Semester/Trimester" in df.columns else None)
+        if group_col:
+            role_df = df.groupby(group_col).agg(
                 Present=("PresentCount", "sum"),
                 Checked=("CheckCount",   "sum"),
             ).reset_index()
-            stream_df["Pct"] = (stream_df["Checked"] / stream_df["Present"] * 100).round(1).fillna(0)
-            stream_df = stream_df.sort_values("Present", ascending=True).tail(8)
+            role_df["Pct"] = (role_df["Checked"] / role_df["Present"] * 100).round(1).fillna(0)
+            role_df = role_df.sort_values("Present", ascending=True)
 
             fig_s = px.bar(
-                stream_df, x="Present", y="StreamName", orientation="h",
-                title="Papers by Stream (Completion %)",
+                role_df, x="Present", y=group_col, orientation="h",
+                title=f"Papers by {group_col} (Completion %)",
                 color="Pct", color_continuous_scale=[[0, RED], [0.5, AMBER], [1, GREEN]],
-                text=stream_df["Pct"].apply(lambda v: f"{v:.0f}%"),
+                text=role_df["Pct"].apply(lambda v: f"{v:.0f}%"),
             )
             fig_s.update_traces(textposition="outside")
             apply_plotly_theme(fig_s, height=320)
@@ -298,7 +316,7 @@ def _tab_deadlines(df: pd.DataFrame):
         st.info("No EvaluationLastDate column found in this dataset.")
         return
 
-    needed_cols = ["ExaminerName", "CampusName", "CourseName", "EvaluationLastDate",
+    needed_cols = ["ExaminerName", "RoleName", "CourseName", "EvaluationLastDate",
                    "_deadline_days", "_deadline_status", "UnCheckCount", "CheckCount"]
     avail = [c for c in needed_cols if c in df.columns]
     tracker = df[avail].copy().drop_duplicates()
@@ -353,7 +371,7 @@ def _tab_deadlines(df: pd.DataFrame):
 def _tab_records(df: pd.DataFrame, folder_label: str):
     st.subheader("Evaluation Records Explorer")
 
-    search = st.text_input("Search by examiner name, course, campus or status:", "")
+    search = st.text_input("Search by examiner name, course, role, category or status:", "")
     disp = df.copy()
     if search:
         mask = disp.astype(str).apply(lambda row: row.str.contains(search, case=False).any(), axis=1)
@@ -405,21 +423,84 @@ def render():
     breadcrumb("Evaluation Dashboard Details", folder_label)
 
     # ── Filters ───────────────────────────────────────────────────────
-    with st.expander("🔍 Filter Data", expanded=False):
-        fc = st.columns(3)
+    with st.expander("🔍 Filter Evaluation Records", expanded=False):
         filtered = df.copy()
-        if "StreamName" in df.columns:
-            with fc[0]:
-                sel = st.multiselect("Stream", sorted(df["StreamName"].dropna().unique()), key="ef_stream")
-                if sel: filtered = filtered[filtered["StreamName"].isin(sel)]
+
+        # Row 1: ExaminerName, RoleName, CourseName
+        r1_col1, r1_col2, r1_col3 = st.columns(3)
+
+        if "ExaminerName" in df.columns:
+            with r1_col1:
+                examiner_options = sorted([str(x) for x in df["ExaminerName"].dropna().unique()])
+                sel_examiner = st.multiselect("Examiner Name", examiner_options, key="ef_examiner")
+                if sel_examiner:
+                    filtered = filtered[filtered["ExaminerName"].isin(sel_examiner)]
+
+        if "RoleName" in df.columns:
+            with r1_col2:
+                role_options = sorted([str(x) for x in df["RoleName"].dropna().unique()])
+                sel_role = st.multiselect("Role Name", role_options, key="ef_role")
+                if sel_role:
+                    filtered = filtered[filtered["RoleName"].isin(sel_role)]
+
         if "CourseName" in df.columns:
-            with fc[1]:
-                sel = st.multiselect("Course", sorted(df["CourseName"].dropna().unique()), key="ef_course")
-                if sel: filtered = filtered[filtered["CourseName"].isin(sel)]
-        if "CampusName" in df.columns:
-            with fc[2]:
-                sel = st.multiselect("Campus / College", sorted(df["CampusName"].dropna().unique()), key="ef_campus")
-                if sel: filtered = filtered[filtered["CampusName"].isin(sel)]
+            with r1_col3:
+                course_options = sorted([str(x) for x in df["CourseName"].dropna().unique()])
+                sel_course = st.multiselect("Course Name", course_options, key="ef_course")
+                if sel_course:
+                    filtered = filtered[filtered["CourseName"].isin(sel_course)]
+
+        # Row 2: Semester/Trimester, CategoryName, Exam Start Date, Exam End Date
+        r2_col1, r2_col2, r2_col3, r2_col4 = st.columns([1.2, 1.8, 1, 1])
+
+        if "Semester/Trimester" in df.columns:
+            with r2_col1:
+                sem_options = sorted([str(x) for x in df["Semester/Trimester"].dropna().unique()])
+                sel_sem = st.multiselect("Semester / Trimester", sem_options, key="ef_sem")
+                if sel_sem:
+                    filtered = filtered[filtered["Semester/Trimester"].isin(sel_sem)]
+
+        if "CategoryName" in df.columns:
+            with r2_col2:
+                cat_options = sorted([str(x) for x in df["CategoryName"].dropna().unique()])
+                sel_cat = st.multiselect("Category Name", cat_options, key="ef_cat")
+                if sel_cat:
+                    filtered = filtered[filtered["CategoryName"].isin(sel_cat)]
+
+        # Calendar dropdown filters for ExamDate
+        if "ExamDate_dt" in df.columns and df["ExamDate_dt"].notna().any():
+            valid_dates = df["ExamDate_dt"].dropna()
+            min_exam_d = valid_dates.min().date()
+            max_exam_d = valid_dates.max().date()
+
+            with r2_col3:
+                start_date = st.date_input(
+                    "Exam Start Date",
+                    value=min_exam_d,
+                    min_value=min_exam_d,
+                    max_value=max_exam_d,
+                    format="DD/MM/YYYY",
+                    key="ef_start_date"
+                )
+
+            with r2_col4:
+                end_date = st.date_input(
+                    "Exam End Date",
+                    value=max_exam_d,
+                    min_value=min_exam_d,
+                    max_value=max_exam_d,
+                    format="DD/MM/YYYY",
+                    key="ef_end_date"
+                )
+
+            if start_date and end_date:
+                if start_date > end_date:
+                    st.warning("⚠️ 'Exam Start Date' cannot be later than 'Exam End Date'.")
+                else:
+                    filtered = filtered[
+                        (filtered["ExamDate_dt"].dt.date >= start_date) &
+                        (filtered["ExamDate_dt"].dt.date <= end_date)
+                    ]
 
     # ── KPI Strip ─────────────────────────────────────────────────────
     st.markdown("&nbsp;", unsafe_allow_html=True)
