@@ -153,6 +153,10 @@ def _load_data(year_id: str, folder_id: str) -> tuple[pd.DataFrame | None, str]:
         if c in df.columns:
             df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)
 
+    # String sanitization to prevent PyArrow mixed-type errors
+    if "Mobile" in df.columns:
+        df["Mobile"] = df["Mobile"].fillna("").astype(str).str.replace(r"\.0$", "", regex=True)
+
     # Date parsing
     for dc in ["EvaluationLastDate", "ExamDate", "AssignedDateTime"]:
         if dc in df.columns:
